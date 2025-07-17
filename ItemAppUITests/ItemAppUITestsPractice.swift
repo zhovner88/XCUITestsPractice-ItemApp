@@ -13,6 +13,9 @@ class ItemAppUITestsPractice: XCTestCase {
     override func setUp() {
         super.setUp()
         app = XCUIApplication()
+
+        app.launchArguments = ["-UITest", "no-animations"]
+
         app.launch()
     }
 
@@ -318,5 +321,63 @@ class ItemAppUITestsPractice: XCTestCase {
             let itemName = String(identifier.dropFirst(13)) // Remove "ItemList.item." prefix
             XCTAssertTrue(app.staticTexts[itemName].exists, "Item with name '\(itemName)' should exist")
         }
+    }
+
+    @MainActor
+    func testListItemCountDecreasesAfterDeletion() {
+        let app = XCUIApplication()
+        app.launch()
+
+        // Helper to count list items
+        let itemCount: () -> Int = {
+            let predicate = NSPredicate(format: "identifier BEGINSWITH %@", "ItemList.item.")
+            return app.staticTexts.matching(predicate).count
+        }
+
+        // --- GIVEN ---
+        let initialCount = itemCount()
+        XCTAssertGreaterThan(initialCount, 0, "There should be at least one item in the list")
+
+        // --- WHEN ---
+        let firstDeleteButton = app.buttons.matching(identifier: "ItemList.button.delete").firstMatch
+        XCTAssertTrue(firstDeleteButton.exists, "Delete button should exist")
+        firstDeleteButton.tap()
+
+        // --- THEN ---
+        let finalCount = itemCount()
+        XCTAssertEqual(finalCount, initialCount - 1, "There should be one less item after deletion")
+    }
+
+    @MainActor
+    func testListItemCountIncreasesAfterAddition() {
+        let app = XCUIApplication()
+        app.launch()
+
+        // Helper to count list items
+        let itemCount: () -> Int = {
+            let predicate = NSPredicate(format: "identifier BEGINSWITH %@", "ItemList.item.")
+            return app.staticTexts.matching(predicate).count
+        }
+
+        // --- GIVEN ---
+        let initialCount = itemCount()
+
+        // --- WHEN ---
+        // Add a new item
+        let addButton = app.buttons[UIIdentifiers.ItemList.addButton]
+        addButton.tap()
+
+        let textField = app.textFields["Item name"]
+        textField.tap()
+        let newItemName = "Test Added Item"
+        textField.typeText(newItemName)
+
+        let addItemButton = app.buttons[UIIdentifiers.AddNewItem.addButton]
+        addItemButton.tap()
+
+        // --- THEN ---
+        let finalCount = itemCount()
+        XCTAssertEqual(finalCount, initialCount + 1, "There should be one more item after addition")
+        XCTAssertTrue(app.staticTexts[newItemName].exists, "The new item should appear in the list")
     }
 }
